@@ -1,0 +1,157 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. catch-all default-deny gate
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Common global helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Entities Validation definitions
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['id', 'name', 'email'])
+        && data.id is string && data.id.size() <= 128
+        && data.name is string && data.name.size() <= 100 && data.name.size() >= 1
+        && data.email is string && data.email.size() <= 150
+        && (!('age' in data) || (data.age is number && data.age >= 0 && data.age <= 150))
+        && (!('gender' in data) || (data.gender is string && data.gender.size() <= 24))
+        && (!('avatar' in data) || (data.avatar is string && data.avatar.size() <= 512))
+        && (!('primaryConditions' in data) || (data.primaryConditions is list && data.primaryConditions.size() <= 20))
+        && (!('vitals' in data) || (data.vitals is map))
+        && (!('createdAt' in data) || (data.createdAt is string));
+    }
+
+    function isValidDocument(data, userId) {
+      return data.keys().hasAll(['id', 'userId', 'title', 'type', 'rawText', 'analysis'])
+        && data.id is string && data.id.size() <= 128
+        && data.userId == userId
+        && data.title is string && data.title.size() <= 200 && data.title.size() >= 1
+        && data.type is string && (data.type == 'report' || data.type == 'prescription' || data.type == 'notes')
+        && data.rawText is string && data.rawText.size() <= 500000
+        && data.analysis is map
+        && (!('fileName' in data) || (data.fileName is string && data.fileName.size() <= 256))
+        && (!('createdAt' in data) || (data.createdAt is string));
+    }
+
+    function isValidMedication(data, userId) {
+      return data.keys().hasAll(['id', 'userId', 'name', 'dosage', 'frequency', 'times', 'active'])
+        && data.id is string && data.id.size() <= 128
+        && data.userId == userId
+        && data.name is string && data.name.size() <= 150 && data.name.size() >= 1
+        && data.dosage is string && data.dosage.size() <= 100
+        && data.frequency is string && data.frequency.size() <= 100
+        && data.times is list && data.times.size() <= 16
+        && data.active is bool
+        && (!('durationDays' in data) || (data.durationDays is number))
+        && (!('totalDoses' in data) || (data.totalDoses is number))
+        && (!('remainingDoses' in data) || (data.remainingDoses is number))
+        && (!('startDate' in data) || (data.startDate is string))
+        && (!('purpose' in data) || (data.purpose is string && data.purpose.size() <= 500))
+        && (!('notes' in data) || (data.notes is string && data.notes.size() <= 5000))
+        && (!('lowStockThreshold' in data) || (data.lowStockThreshold is number))
+        && (!('createdAt' in data) || (data.createdAt is string));
+    }
+
+    function isValidSymptomLog(data, userId) {
+      return data.keys().hasAll(['id', 'userId', 'symptomType', 'severity', 'notes'])
+        && data.id is string && data.id.size() <= 128
+        && data.userId == userId
+        && data.symptomType is string && data.symptomType.size() <= 100
+        && data.severity is number && data.severity >= 1 && data.severity <= 10
+        && data.notes is string && data.notes.size() <= 1000
+        && (!('value' in data) || (data.value is number))
+        && (!('loggedAt' in data) || (data.loggedAt is string));
+    }
+
+    function isValidMonthlyReport(data, userId) {
+      return data.keys().hasAll(['id', 'userId', 'month', 'year', 'healthScore', 'summary', 'trendDiagnosis'])
+        && data.id is string && data.id.size() <= 128
+        && data.userId == userId
+        && data.month is string && data.month.size() <= 24
+        && data.year is number && data.year >= 2020 && data.year <= 2100
+        && data.healthScore is number && data.healthScore >= 1 && data.healthScore <= 100
+        && data.summary is string && data.summary.size() <= 50000
+        && data.trendDiagnosis is string && data.trendDiagnosis.size() <= 5000
+        && (!('keyActionItems' in data) || (data.keyActionItems is list && data.keyActionItems.size() <= 50))
+        && (!('recommendations' in data) || (data.recommendations is map))
+        && (!('generatedAt' in data) || (data.generatedAt is string));
+    }
+
+    function isValidNotification(data, userId) {
+      return data.keys().hasAll(['id', 'userId', 'title', 'message', 'type', 'timestamp', 'read'])
+        && data.id is string && data.id.size() <= 128
+        && data.userId == userId
+        && data.title is string && data.title.size() <= 200
+        && data.message is string && data.message.size() <= 1000
+        && data.type is string && (data.type == 'medication' || data.type == 'symptom' || data.type == 'alert' || data.type == 'system')
+        && data.read is bool
+        && (!('timestamp' in data) || (data.timestamp is string))
+        && (!('metaData' in data) || (data.metaData is map));
+    }
+
+    // Rules matching resources (The Fortress)
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow create: if isOwner(userId) && isValidId(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidId(userId) && isValidUser(request.resource.data);
+      allow delete: if false; // Profile removal disabled for safety
+
+      // Inner subcollections represent separate isolated health files
+      
+      match /documents/{documentId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(documentId);
+        allow list: if isOwner(userId) && isValidId(userId);
+        allow create: if isOwner(userId) && isValidId(userId) && isValidId(documentId) && isValidDocument(request.resource.data, userId);
+        allow update: if isOwner(userId) && isValidId(userId) && isValidId(documentId) && isValidDocument(request.resource.data, userId);
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(documentId);
+      }
+
+      match /medications/{medicationId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(medicationId);
+        allow list: if isOwner(userId) && isValidId(userId);
+        allow create: if isOwner(userId) && isValidId(userId) && isValidId(medicationId) && isValidMedication(request.resource.data, userId);
+        allow update: if isOwner(userId) && isValidId(userId) && isValidId(medicationId) && isValidMedication(request.resource.data, userId);
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(medicationId);
+      }
+
+      match /symptomLogs/{logId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(logId);
+        allow list: if isOwner(userId) && isValidId(userId);
+        allow create: if isOwner(userId) && isValidId(userId) && isValidId(logId) && isValidSymptomLog(request.resource.data, userId);
+        allow update: if isOwner(userId) && isValidId(userId) && isValidId(logId) && isValidSymptomLog(request.resource.data, userId);
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(logId);
+      }
+
+      match /monthlyReports/{reportId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(reportId);
+        allow list: if isOwner(userId) && isValidId(userId);
+        allow create: if isOwner(userId) && isValidId(userId) && isValidId(reportId) && isValidMonthlyReport(request.resource.data, userId);
+        allow update: if isOwner(userId) && isValidId(userId) && isValidId(reportId) && isValidMonthlyReport(request.resource.data, userId);
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(reportId);
+      }
+
+      match /notifications/{notificationId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(notificationId);
+        allow list: if isOwner(userId) && isValidId(userId);
+        allow create: if isOwner(userId) && isValidId(userId) && isValidId(notificationId) && isValidNotification(request.resource.data, userId);
+        allow update: if isOwner(userId) && isValidId(userId) && isValidId(notificationId) && isValidNotification(request.resource.data, userId);
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(notificationId);
+      }
+    }
+  }
+}

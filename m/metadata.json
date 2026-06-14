@@ -1,0 +1,6 @@
+{
+  "name": "MediSense AI",
+  "description": "An AI-powered medical report and prescription intelligence system for patient-friendly healthcare assistance, supporting chronic condition tracking and medication scheduling.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

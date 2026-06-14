@@ -1,0 +1,138 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Private health profile and vital signs data",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "age": { "type": "number" },
+        "gender": { "type": "string" },
+        "avatar": { "type": "string" },
+        "primaryConditions": { "type": "array" },
+        "vitals": { "type": "object" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "email"]
+    },
+    "MedicalDocument": {
+      "title": "MedicalDocument",
+      "description": "A digitised medical paper or prescription",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "type": { "type": "string" },
+        "date": { "type": "string" },
+        "fileName": { "type": "string" },
+        "rawText": { "type": "string" },
+        "analysis": { "type": "object" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "title", "type", "rawText", "analysis"]
+    },
+    "Medication": {
+      "title": "Medication",
+      "description": "Schedules, frequencies, and details of prescription medications",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "dosage": { "type": "string" },
+        "frequency": { "type": "string" },
+        "times": { "type": "array" },
+        "durationDays": { "type": "number" },
+        "totalDoses": { "type": "number" },
+        "remainingDoses": { "type": "number" },
+        "startDate": { "type": "string" },
+        "purpose": { "type": "string" },
+        "active": { "type": "boolean" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "tag": { "type": "string" },
+        "color": { "type": "string" },
+        "folder": { "type": "string" }
+      },
+      "required": ["id", "userId", "name", "dosage", "frequency", "times", "active"]
+    },
+    "SymptomLog": {
+      "title": "SymptomLog",
+      "description": "Chronological patient-reported symptoms and vital telemetry values",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "symptomType": { "type": "string" },
+        "severity": { "type": "number" },
+        "notes": { "type": "string" },
+        "value": { "type": "number" },
+        "loggedAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "symptomType", "severity", "notes"]
+    },
+    "MonthlyProgressReport": {
+      "title": "MonthlyProgressReport",
+      "description": "Chronological medical intelligence sheets highlighting progress and warnings",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "month": { "type": "string" },
+        "year": { "type": "number" },
+        "healthScore": { "type": "number" },
+        "summary": { "type": "string" },
+        "trendDiagnosis": { "type": "string" },
+        "keyActionItems": { "type": "array" },
+        "recommendations": { "type": "object" },
+        "generatedAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "month", "year", "healthScore", "summary", "trendDiagnosis"]
+    },
+    "HealthNotification": {
+      "title": "HealthNotification",
+      "description": "Medicine alarms and clinical notifications triggered in real-time",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "read": { "type": "boolean" },
+        "metaData": { "type": "object" }
+      },
+      "required": ["id", "userId", "title", "message", "type", "timestamp", "read"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "The private health profiles of patients"
+    },
+    "/users/{userId}/documents/{documentId}": {
+      "schema": "MedicalDocument",
+      "description": "A subcollection storing the user's analyzed clinical files, screening tests, and prescriptions"
+    },
+    "/users/{userId}/medications/{medicationId}": {
+      "schema": "Medication",
+      "description": "A subcollection outlining daily medical schedules and tracking pill intake"
+    },
+    "/users/{userId}/symptomLogs/{logId}": {
+      "schema": "SymptomLog",
+      "description": "A subcollection logging the chronological vital logs and custom clinical events"
+    },
+    "/users/{userId}/monthlyReports/{reportId}": {
+      "schema": "MonthlyProgressReport",
+      "description": "A subcollection storing AI-generated clinical tracking metrics on a monthly frequency"
+    },
+    "/users/{userId}/notifications/{notificationId}": {
+      "schema": "HealthNotification",
+      "description": "A subcollection preserving alerts and medication time reminders"
+    }
+  }
+}
